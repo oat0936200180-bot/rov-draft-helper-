@@ -8,6 +8,14 @@ let DATA = { heroes: [], rules: [] };
 let state = load();
 let roleFilter = 'ALL', query = '', chart;
 
+function normalize(d) {
+  d.heroes = d.heroes.map((s) => {
+    const [n, r, t] = s.split('|'), roles = r.split(',');
+    return { n, r: roles[0], roles, t: t.split(' ').map((k) => d.tagKey[k]) };
+  });
+  return d;
+}
+const roleText = (h) => h.roles.map((r) => ROLES[r]).join(' / ');
 function fresh() { return { blue: Array(5).fill(null), red: Array(5).fill(null), bans: [], active: { team: 'blue', i: 0 } }; }
 function load() {
   try { const s = JSON.parse(localStorage.getItem(KEY)); if (s && s.blue && s.red) return s; } catch (e) {}
@@ -51,10 +59,10 @@ function renderSlots() {
   ['blue', 'red'].forEach((team) => {
     $(team + 'Slots').innerHTML = state[team].map((n, i) => {
       const h = n && hero(n), act = state.active.team === team && state.active.i === i;
-      return `<div class="slot ${act ? 'active' : ''}" data-team="${team}" data-i="${i}" role="button" tabindex="0" aria-label="ช่อง ${i + 1}">
+      return `<div class="slot ${act ? 'active' : ''}" ${h ? 'draggable="true"' : ''} data-team="${team}" data-i="${i}" role="button" tabindex="0" aria-label="ช่อง ${i + 1}">
         ${h ? avatar(h) : '<div class="avatar bg-slate-700 text-slate-400">?</div>'}
         <div class="flex-1 min-w-0"><div class="text-sm font-medium truncate">${h ? esc(h.n) : 'ว่าง'}</div>
-        <div class="text-xs text-slate-400">${h ? ROLES[h.r] : 'ช่อง ' + (i + 1)}</div></div>
+        <div class="text-xs text-slate-400">${h ? roleText(h) : 'ช่อง ' + (i + 1)}</div></div>
         ${h ? `<button class="clear text-slate-400 hover:text-red-400 px-2" aria-label="ลบ ${esc(h.n)}" data-team="${team}" data-i="${i}">✕</button>` : ''}</div>`;
     }).join('');
   });
@@ -68,11 +76,11 @@ function renderBans() {
     : '<p class="text-xs text-slate-400 italic">ยังไม่มีการแบน กดปุ่ม “แบน” บนการ์ดฮีโร่</p>';
 }
 function renderPool() {
-  const list = DATA.heroes.filter((h) => (roleFilter === 'ALL' || h.r === roleFilter) && h.n.toLowerCase().includes(query));
+  const list = DATA.heroes.filter((h) => (roleFilter === 'ALL' || h.roles.includes(roleFilter)) && h.n.toLowerCase().includes(query));
   $('heroPool').innerHTML = list.map((h) => {
     const off = taken(h.n);
-    return `<div class="hero-card ${off ? 'disabled' : 'cursor-pointer'}" data-n="${esc(h.n)}">
-      <div class="flex items-center gap-2">${avatar(h)}<div class="min-w-0"><div class="text-sm font-medium truncate">${esc(h.n)}</div><div class="text-xs text-slate-400">${ROLES[h.r]}</div></div></div>
+    return `<div class="hero-card ${off ? 'disabled' : 'cursor-pointer'}" ${off ? '' : 'draggable="true"'} data-n="${esc(h.n)}">
+      <div class="flex items-center gap-2">${avatar(h)}<div class="min-w-0"><div class="text-sm font-medium truncate">${esc(h.n)}</div><div class="text-xs text-slate-400">${roleText(h)}</div></div></div>
       ${off ? '' : `<button class="ban mt-2 w-full text-xs py-0.5 rounded bg-red-500/15 text-red-300 hover:bg-red-500/30" data-n="${esc(h.n)}">แบน</button>`}</div>`;
   }).join('') || '<p class="text-sm text-slate-400 col-span-full">ไม่พบฮีโร่</p>';
 }
@@ -113,7 +121,51 @@ function ban(n) {
   state.bans.push(n); renderAll();
 }
 
+let drag = null;
+function bindDrag() {
+  const clearOver = () => document.querySelectorAll('.drop-over').forEach((x) => x.classList.remove('drop-over'));
+  const target = (e) => e.target.closest('.slot, #banContainer');
+  document.addEventListener('dragstart', (e) => {
+    const s = e.target.closest('.slot[draggable]'), c = e.target.closest('.hero-card[draggable]');
+    if (s) drag = { n: state[s.dataset.team][+s.dataset.i], team: s.dataset.team, i: +s.dataset.i };
+    else if (c) drag = { n: c.dataset.n };
+    else return;
+    e.dataTransfer.setData('text/plain', drag.n);
+    e.dataTransfer.effectAllowed = 'move';
+  });
+  document.addEventListener('dragend', () => { drag = null; clearOver(); });
+  document.addEventListener('dragover', (e) => {
+    const t = target(e);
+    if (!drag || !t) return;
+    e.preventDefault();
+    clearOver();
+    t.classList.add('drop-over');
+  });
+  document.addEventListener('drop', (e) => {
+    const t = target(e);
+    if (!drag || !t) return;
+    e.preventDefault();
+    if (t.id === 'banContainer') {
+      if (drag.team) state[drag.team][drag.i] = null;
+      ban(drag.n);
+    } else {
+      const team = t.dataset.team, i = +t.dataset.i;
+      if (drag.team) { // ลากจากช่อง: สลับตำแหน่ง
+        const other = state[team][i];
+        state[team][i] = drag.n;
+        state[drag.team][drag.i] = other;
+      } else if (!taken(drag.n)) {
+        state[team][i] = drag.n;
+      }
+      renderAll();
+    }
+    drag = null;
+    clearOver();
+  });
+}
+
 function bind() {
+  bindDrag();
   $('heroPool').addEventListener('click', (e) => {
     const b = e.target.closest('.ban');
     if (b) return ban(b.dataset.n);
@@ -151,7 +203,7 @@ async function init() {
   try {
     const res = await fetch('heroes.json');
     if (!res.ok) throw new Error(res.status);
-    DATA = await res.json();
+    DATA = normalize(await res.json());
     $('patchInfo').textContent = `ข้อมูล: ${DATA.patch} (อัปเดต ${DATA.updated})`;
   } catch (err) {
     $('errorBox').textContent = 'โหลด heroes.json ไม่สำเร็จ ถ้าเปิดไฟล์ตรง ๆ (file://) ให้รันผ่านเซิร์ฟเวอร์ เช่น "npx serve" หรือใช้ GitHub Pages';
