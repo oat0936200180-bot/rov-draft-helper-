@@ -23,3 +23,7 @@ body {
 .slot.active { border-style: solid; border-color: #22d3ee; background: rgba(34, 211, 238, .08); }
 
 button:focus-visible, input:focus-visible { outline: 2px solid #22d3ee; outline-offset: 2px; }
+
+.hero-card[draggable="true"], .slot[draggable="true"] { cursor: grab; }
+.hero-card[draggable="true"]:active, .slot[draggable="true"]:active { cursor: grabbing; }
+.drop-over { outline: 2px dashed #fbbf24; outline-offset: 2px; background: rgba(251, 191, 36, .1) !important; border-radius: 8px; }
