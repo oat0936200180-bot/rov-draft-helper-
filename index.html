@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RoV Ban/Pick & Counter Helper 2026</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts: Kanit -->
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Chart.js for Radar Chart -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="p-2 sm:p-4 md:p-6 min-h-screen text-slate-200">
+
+    <div class="max-w-7xl mx-mx-auto">
+        <!-- Header -->
+        <header class="flex flex-col sm:flex-row justify-between items-center mb-6 bg-slate-800/80 p-4 rounded-xl border border-slate-700/60 backdrop-blur shadow-xl gap-4">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-lg bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center text-white text-xl font-bold shadow-lg shadow-cyan-500/30">
+                    <i class="fa-solid fa-[#00f2fe]">⚔️</i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold bg-gradient-to-r from-cyan-400 to-amber-400 bg-clip-text text-transparent">RoV Ban/Pick Helper</h1>
+                    <p class="text-xs text-slate-400">ระบบวิเคราะห์การดราฟตัว ชนะทาง-แพ้ทาง (Patch 2026)</p>
+                </div>
+            </div>
+            <div class="flex gap-2">
+                <button id="btnReset" class="px-4 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-400 border border-red-500/40 rounded-lg text-sm transition font-medium flex items-center gap-2">
+                    <i class="fa-solid fa-rotate-right"></i> ล้างการดราฟทั้งหมด
+                </button>
+            </div>
+        </header>
+
+        <!-- Ban Section -->
+        <div class="mb-6 bg-slate-800/50 p-4 rounded-xl border border-slate-700/50">
+            <h2 class="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+                <i class="fa-solid fa-ban text-red-400"></i> ฮีโร่ที่ถูกแบน (Banned Heroes)
+            </h2>
+            <div id="banContainer" class="flex flex-wrap gap-2 min-h-[50px] items-center">
+                <p class="text-xs text-slate-500 italic">ยังไม่มีการแบนฮีโร่ (คลิกที่ปุ่ม 'แบน' ในกล่องฮีโร่)</p>
+            </div>
+        </div>
+
+        <!-- Main Grid Layout -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <!-- Left Side: Draft Slots (4 cols) -->
+            <div class="lg:col-span-5 space-y-6">
+                <!-- Blue Team Slots -->
+                <div class="bg-slate-800/80 rounded-xl p-4 border border-cyan-500/30 shadow-lg relative overflow-hidden">
+                    <div class="absolute top-0 left-0 w-1.5 h-full bg-cyan-500"></div>
+                    <div class="flex justify-between items-center mb-3">
+                        <h3 class="text-base font-bold text-cyan-400 flex items-center gap-2">
+                            <i class="fa-solid fa-shield-halved"></i> ทีมของเรา (Blue Team)
+                        </h3>
+                        <span class="text-xs text-slate-400 bg-slate-700/50 px-2 py-0.5 rounded">ฝั่งเรา</span>
+                    </div>
+                    <div id="blueSlots" class="space-y-2">
+                        <!-- Slots injected by JS -->
+                    </div>
+                </div>
+
+                <!-- Red Team Slots -->
+                <div class="bg-slate-800/80 rounded-xl p-4 border border-rose-500/30 shadow-lg relative overflow-hidden">
+                    <div class="absolute top-0 left-0 w-1.5 h-full bg-rose-500"></div>
+                    <div class="flex justify-between items-center mb-3">
+                        <h3 class="text-base font-bold text-rose-400 flex items-center gap-2">
+                            <i class="fa-solid fa-skull"></i> ทีมตรงข้าม (Red Team)
+                        </h3>
+                        <span class="text-xs text-slate-400 bg-slate-700/50 px-2 py-0.5 rounded">ฝั่งตรงข้าม</span>
+                    </div>
+                    <div id="redSlots" class="space-y-2">
+                        <!-- Slots injected by JS -->
+                    </div>
+                </div>
+
+                <!-- Team Balance & Recommendation Analysis -->
+                <div class="bg-slate-800/80 rounded-xl p-4 border border-slate-700 shadow-lg">
+                    <h3 class="text-sm font-bold text-slate-300 mb-3 flex items-center gap-2">
+                        <i class="fa-solid fa-chart-pie text-amber-400"></i> วิเคราะห์สมดุลทีม
+                    </h3>
+                    <div class="w-full h-48 flex items-center justify-center">
+                        <canvas id="radarChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Side: Hero Selection & Recommendations (7 cols) -->
+            <div class="lg:col-span-7 space-y-6">
+                
+                <!-- AI Recommendations Box -->
+                <div class="bg-slate-800/90 rounded-xl p-4 border border-amber-500/30 shadow-xl relative overflow-hidden">
+                    <div class="absolute top-0 right-0 w-24 h-24 bg-amber-500/5 rounded-full blur-xl pointer-events-none"></div>
+                    <h3 class="text-base font-bold text-amber-400 mb-2 flex items-center gap-2">
+                        <i class="fa-solid fa-lightbulb"></i> แนะนำฮีโร่ควรเล่น / ไม่ควรเล่น
+                    </h3>
+                    <p class="text-xs text-slate-400 mb-3">คำนวณจากฮีโร่ฝั่งตรงข้ามที่เลือกมาแล้ว และความสมดุลตำแหน่งในทีม</p>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <!-- Recommended -->
+                        <div class="bg-emerald-950/30 border border-emerald-500/30 rounded-lg p-3">
+                            <h4 class="text-xs font-semibold text-emerald-400 mb-2 flex items-center gap-1">
+                                <i class="fa-solid fa-thumbs-up"></i> ควรเลือกเล่น (Good Picks)
+                            </h4>
+                            <div id="recommendedContainer" class="space-y-2 min-h-[60px]">
+                                <p class="text-xs text-slate-500 italic">เลือกฮีโร่ฝั่งตรงข้ามเพื่อรับคำแนะนำ</p>
+                            </div>
+                        </div>
+
+                        <!-- Not Recommended -->
+                        <div class="bg-rose-950/30 border border-rose-500/30 rounded-lg p-3">
+                            <h4 class="text-xs font-semibold text-rose-400 mb-2 flex items-center gap-1">
+                                <i class="fa-solid fa-thumbs-down"></i> ไม่ควรเลือกเล่น (Bad Picks)
+                            </h4>
+                            <div id="avoidContainer" class="space-y-2 min-h-[60px]">
+                                <p class="text-xs text-slate-500 italic">เลือกฮีโร่ฝั่งตรงข้ามเพื่อรับคำแนะนำ</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Hero Pool Selection -->
+                <div class="bg-slate-800/80 rounded-xl p-4 border border-slate-700 shadow-lg">
+                    <!-- Filters -->
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
+                        <div class="flex flex-wrap gap-1.5" id="roleFilters">
+                            <button class="role-btn active px-3 py-1 rounded-md text-xs font-medium transition" data-role="ALL">ทั้งหมด</button>
+                            <button class="role-btn px-3 py-1 rounded-md text-xs font-medium transition" data-role="Dark Slayer">DS Lane</button>
+                            <button class="role-btn px-3 py-1 rounded-md text-xs font-medium transition" data-role="Jungle">Jungle</button>
+                            <button class="role-btn px-3 py-1 rounded-md text-xs font-medium transition" data-role="Mid">Mid</button>
+                            <button class="role-btn px-3 py-1 rounded-md text-xs font-medium transition" data-role="Abyssal">AD Carry</button>
+                            <button class="role-btn px-3 py-1 rounded-md text-xs font-medium transition" data-role="Support">Support</button>
+                        </div>
+                        <div class="relative w-full sm:w-auto">
+                            <input type="text" id="searchInput" placeholder="ค้นหาชื่อฮีโร่..." class="w-full sm:w-48 bg-slate-900 border border-slate-700 text-xs text-slate-200 rounded-lg px-3 py-1.5 pl-8 focus:outline-none focus:border-cyan-500">
+                            <i class="fa-solid fa-magnifying-glass absolute left-2.5 top-2 text-xs text-slate-500"></i>
+                        </div>
+                    </div>
+
+                    <!-- Active Target Slot Info -->
+                    <div class="mb-3 p-2 bg-slate-900/60 rounded-lg border border-slate-700/50 flex justify-between items-center">
+                        <span id="activeSlotText" class="text-xs text-cyan-400 font-medium">
+                            <i class="fa-solid fa-arrow-pointer"></i> กำลังเลือกให้: ทีมเรา (Slot 1)
+                        </span>
+                        <span class="text-[10px] text-slate-500">คลิกที่ฮีโร่ด้านล่างเพื่อเลือก</span>
+                    </div>
+
+                    <!-- Hero Cards Container -->
+                    <div id="heroPool" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5 max-h-[480px] overflow-y-auto pr-1 custom-scrollbar">
+                        <!-- Hero cards injected by JS -->
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- App JS Script -->
+    <script src="app.js"></script>
+</body>
+</html>
